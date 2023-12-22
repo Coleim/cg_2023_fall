@@ -3,14 +3,157 @@ interface Creature {
     creatureId: number;
     color: number;
     type: number;
+    creatureX?: number;
+    creatureY?: number;
+    creatureVx?: number;
+    creatureVy?: number;
 }
+
+
+enum Direction {
+    LEFT,
+    RIGHT,
+    UP,
+    DOWN
+}
+
+class Drone {
+    nextAction: string = "";
+    nextPosition: Point;
+    nextLight: boolean = false;
+    moveDirection = Direction.DOWN;
+
+    constructor(private droneId: number, public position: Point, public emergency: number, public battery: number) {
+
+    }
+    update(game: Game) {
+        if(this.nextAction) {
+            this.nextLight = false;
+        } else {
+            this.nextLight = true;
+        }
+        this.emergency;
+        switch (this.moveDirection) {
+            case Direction.DOWN: this.moveDown(); break;
+            case Direction.RIGHT: this.moveRight(); break;
+            case Direction.LEFT: this.moveLeft(); break;
+            case Direction.UP: this.moveUp(); break;
+        }
+        this.nextAction = `MOVE ${this.nextPosition.x} ${this.nextPosition.y} ${(this.nextLight? '1': '0')}`;
+    }
+    moveUp() {
+        this.nextPosition = {
+            x: this.position.x,
+            y: 200
+        } 
+        if (this.position.y < 200) {
+            this.nextPosition = {
+                x: this.position.x,
+                y: 10000
+            }
+            this.moveDirection = Direction.DOWN
+        }
+    }
+    moveLeft() {
+        if (this.position.x > 2500) {
+            this.nextPosition = {
+                x: this.position.x - 5000,
+                y: this.position.y
+            }
+            this.moveDirection = Direction.LEFT
+        } else {
+            this.nextPosition = {
+                x: this.position.x,
+                y: 200
+            }
+            this.moveDirection = Direction.UP
+        } 
+    }
+    moveRight() {
+        if (this.position.x < 8500) {
+            this.nextPosition = {
+                x: this.position.x + 5000,
+                y: this.position.y
+            }
+            this.moveDirection = Direction.RIGHT
+        } else {
+            this.nextPosition = {
+                x: this.position.x,
+                y: 200
+            }
+            this.moveDirection = Direction.UP
+        } 
+    }
+    moveDown() {
+        if (this.position.y < 8600 && this.moveDirection === Direction.DOWN) {
+            this.nextPosition = {
+                x: this.position.x,
+                y: 10000
+            }
+            
+        } else if (this.position.y >= 8600) {
+            if (this.position.x < 5000) {
+                this.nextPosition = {
+                    x: this.position.x + 5000,
+                    y: this.position.y
+                }
+                this.moveDirection = Direction.RIGHT
+            } else {
+                this.nextPosition = {
+                    x: this.position.x - 5000,
+                    y: this.position.y
+                }
+                this.moveDirection = Direction.LEFT
+            }
+            this.nextLight = true;
+        }
+    }
+}
+
 
 
 class Game {
     creatureCount: number;
-    creatures: Creature[];
+    creatures: Map<number, Creature> = new Map();
+    score: number;
+    foeScore: number;
+    myScanCount: number;
+    creatureScannedIds: number[];
+    foeScanCount: number;
+    foeScannedIds: number[];
+    myDroneCount: number;
+    myDrone: Map<number, Drone> = new Map();
+    foeDroneCount: number;
+    foeDrone: Drone[];
+    droneScanCount: number;
+    droneScan: Drone[];
+    radarBlipCount: number;
+    radarBlip: Map<number, RadarBlip> = new Map();
+
+    printGameState() {
+        console.error("My Drones:", this.myDrone);
+
+        console.error("Creature Count:", this.creatureCount);
+        console.error("Creatures:", this.creatures);
+        // console.error("Score:", this.score);
+        // console.error("Foe Score:", this.foeScore);
+        console.error("My Scan Count:", this.myScanCount);
+        console.error("Creature Scanned IDs:", this.creatureScannedIds);
+        // console.error("Foe Scan Count:", this.foeScanCount);
+        // console.error("Foe Scanned IDs:", this.foeScannedIds);
+        // console.error("My Drone Count:", this.myDroneCount);
+        
+        // console.error("Foe Drone Count:", this.foeDroneCount);
+        // console.error("Foe Drones:", this.foeDrone);
+        // console.error("Drone Scan Count:", this.droneScanCount);
+        // console.error("Drone Scan:", this.droneScan);
+        console.error("Radar Blip Count:", this.radarBlipCount);
+        console.error("Radar Blip IDs:", Array.from(this.radarBlip.keys()));
+
+    }
 
     parseSetupInput() {
+
         this.creatureCount = parseInt(readline());
         for (let i = 0; i < this.creatureCount; i++) {
             var inputs: string[] = readline().split(' ');
@@ -20,40 +163,49 @@ class Game {
             let creature: Creature = {
                 creatureId, color, type 
             }
-            this.creatures.push(creature);
+            this.creatures.set(creatureId,creature);
         }
     }
     parseGameState() {
-        const myScore: number = parseInt(readline());
-        const foeScore: number = parseInt(readline());
-        const myScanCount: number = parseInt(readline());
-        for (let i = 0; i < myScanCount; i++) {
+        this.score = parseInt(readline());
+        this.foeScore = parseInt(readline());
+        this.myScanCount = parseInt(readline());
+        this.creatureScannedIds = []
+        for (let i = 0; i < this.myScanCount; i++) {
             const creatureId: number = parseInt(readline());
+            this.creatureScannedIds.push(creatureId);
         }
-        const foeScanCount: number = parseInt(readline());
-        for (let i = 0; i < foeScanCount; i++) {
+        this.foeScanCount = parseInt(readline());
+        this.foeScannedIds = [];
+        for (let i = 0; i < this.foeScanCount; i++) {
             const creatureId: number = parseInt(readline());
+            this.foeScannedIds.push(creatureId);
         }
-        const myDroneCount: number = parseInt(readline());
-        for (let i = 0; i < myDroneCount; i++) {
+        this.myDroneCount = parseInt(readline());
+        this.updateDroneState()
+        this.foeDroneCount = parseInt(readline());
+        this.foeDrone = [];
+        for (let i = 0; i < this.foeDroneCount; i++) {
             var inputs: string[] = readline().split(' ');
             const droneId: number = parseInt(inputs[0]);
             const droneX: number = parseInt(inputs[1]);
             const droneY: number = parseInt(inputs[2]);
             const emergency: number = parseInt(inputs[3]);
             const battery: number = parseInt(inputs[4]);
+            let drone = new Drone(
+                droneId,
+                {
+                    x: droneX,
+                    y: droneY
+                },
+                battery,
+                emergency
+            )
+            this.foeDrone.push(drone);
         }
-        const foeDroneCount: number = parseInt(readline());
-        for (let i = 0; i < foeDroneCount; i++) {
-            var inputs: string[] = readline().split(' ');
-            const droneId: number = parseInt(inputs[0]);
-            const droneX: number = parseInt(inputs[1]);
-            const droneY: number = parseInt(inputs[2]);
-            const emergency: number = parseInt(inputs[3]);
-            const battery: number = parseInt(inputs[4]);
-        }
-        const droneScanCount: number = parseInt(readline());
-        for (let i = 0; i < droneScanCount; i++) {
+        this.droneScanCount = parseInt(readline());
+        this.droneScan = [];
+        for (let i = 0; i < this.droneScanCount; i++) {
             var inputs: string[] = readline().split(' ');
             const droneId: number = parseInt(inputs[0]);
             const creatureId: number = parseInt(inputs[1]);
@@ -66,46 +218,103 @@ class Game {
             const creatureY: number = parseInt(inputs[2]);
             const creatureVx: number = parseInt(inputs[3]);
             const creatureVy: number = parseInt(inputs[4]);
+            if(this.creatures.has(creatureId)) {
+                let creature = this.creatures.get(creatureId);
+                creature = {
+                    ...creature!,
+                    creatureX,
+                    creatureY,
+                    creatureVx,
+                    creatureVy
+                }
+                this.creatures.set(creatureId, creature);
+            } else {
+                // No creature found ????
+                console.error("No creature found...")
+            }
         }
-        const radarBlipCount: number = parseInt(readline());
-        for (let i = 0; i < radarBlipCount; i++) {
+        this.radarBlipCount = parseInt(readline());
+        this.radarBlip.clear();
+        for (let i = 0; i < this.radarBlipCount; i++) {
             var inputs: string[] = readline().split(' ');
             const droneId: number = parseInt(inputs[0]);
             const creatureId: number = parseInt(inputs[1]);
             const radar: string = inputs[2];
         }
     }
+
+    update() {
+        for (let i = 0; i < game.myDroneCount; i++) {
+            this.myDrone.get(i)!.update(this);
+        }
+    }
+    printAction(i: number) {
+        if(i<this.myDroneCount) {
+            console.log(this.myDrone.get(i)!.nextAction); 
+        }        // MOVE <x> <y> <light (1|0)> | WAIT <light (1|0)>
+    }
+
+    updateDroneState() {
+        // Update drones positions
+        for (let i = 0; i < this.myDroneCount; i++) {
+            var inputs: string[] = readline().split(' ');
+            const droneId: number = parseInt(inputs[0]);
+            const droneX: number = parseInt(inputs[1]);
+            const droneY: number = parseInt(inputs[2]);
+            const emergency: number = parseInt(inputs[3]);
+            const battery: number = parseInt(inputs[4]);
+            let newDrone: Drone = new Drone(
+                droneId,
+                {
+                    x: droneX,
+                    y: droneY
+                },
+                battery,
+                emergency
+            )
+            if( !this.myDrone.has(droneId) ) {
+                this.myDrone.set(droneId, newDrone);
+            } else {
+                let drone = this.myDrone.get(droneId)!;
+                drone.position = {
+                    x: droneX,
+                    y: droneY
+                };
+                drone.emergency = emergency;
+                drone.battery = battery;
+            }
+        }
+    }
+
+    
 }
+
+
 
 interface Point {
     x: number;
     y: number;
 }
 
-
-
-
-function readline(): string {
-    throw new Error("Function not implemented.");
+interface RadarBlip {
+    creatureId: number;
+    direction: string;
 }
+
+
+
 
 let game: Game = new Game();
 game.parseSetupInput();
-
-
 
 // game loop
 while (true) {
 
     game.parseGameState();
-    
-    for (let i = 0; i < 1; i++) {
-
-        // Write an action using console.log()
-        // To debug: console.error('Debug messages...');
-
-        console.log('WAIT 1');         // MOVE <x> <y> <light (1|0)> | WAIT <light (1|0)>
-
+    game.printGameState();
+    game.update(); 
+    for (let i = 0; i < game.myDroneCount; i++) {
+        game.printAction(i);
     }
 }
 

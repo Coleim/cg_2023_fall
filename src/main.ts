@@ -7,14 +7,10 @@ game.parseSetupInput();
 while (true) {
 
     game.parseGameState();
-    
-    for (let i = 0; i < 1; i++) {
-
-        // Write an action using console.log()
-        // To debug: console.error('Debug messages...');
-
-        console.log('WAIT 1');         // MOVE <x> <y> <light (1|0)> | WAIT <light (1|0)>
-
+    game.printGameState();
+    game.update(); 
+    for (let i = 0; i < game.myDroneCount; i++) {
+        game.printAction(i);
     }
 }
 
