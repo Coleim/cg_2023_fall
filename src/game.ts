@@ -1,7 +1,12 @@
 import { Creature } from "./creatures";
 import { Drone } from "./drone";
+import { RadarBlip } from "./radarblip";
+
 
 export class Game {
+    surface = 500;
+    mapSize = 10000;
+
     creatureCount: number;
     creatures: Map<number, Creature> = new Map();
     score: number;
@@ -11,7 +16,7 @@ export class Game {
     foeScanCount: number;
     foeScannedIds: number[];
     myDroneCount: number;
-    myDrone: Map<number, Drone> = new Map();
+    myDrones: Map<number, Drone> = new Map();
     foeDroneCount: number;
     foeDrone: Drone[];
     droneScanCount: number;
@@ -20,14 +25,16 @@ export class Game {
     radarBlip: Map<number, RadarBlip> = new Map();
 
     printGameState() {
-        console.error("My Drones:", this.myDrone);
+        // console.error("My Drones:", this.myDrones);
 
-        console.error("Creature Count:", this.creatureCount);
-        console.error("Creatures:", this.creatures);
+        // console.error("Creature Count:", this.creatureCount);
+        // console.error("Creatures:", this.creatures);
+        // console.error("Creatures To HUNT:", this.creaturesToHunt);
+        // console.error("My Drones:", this.myDrones);
         // console.error("Score:", this.score);
         // console.error("Foe Score:", this.foeScore);
-        console.error("My Scan Count:", this.myScanCount);
-        console.error("Creature Scanned IDs:", this.creatureScannedIds);
+        // console.error("My Scan Count:", this.myScanCount);
+        // console.error("Creature Scanned IDs:", this.creatureScannedIds);
         // console.error("Foe Scan Count:", this.foeScanCount);
         // console.error("Foe Scanned IDs:", this.foeScannedIds);
         // console.error("My Drone Count:", this.myDroneCount);
@@ -36,15 +43,17 @@ export class Game {
         // console.error("Foe Drones:", this.foeDrone);
         // console.error("Drone Scan Count:", this.droneScanCount);
         // console.error("Drone Scan:", this.droneScan);
-        console.error("Radar Blip Count:", this.radarBlipCount);
-        console.error("Radar Blip IDs:", Array.from(this.radarBlip.keys()));
+        // console.error("Radar Blip Count:", this.radarBlipCount);
+        // console.error("Radar Blip:", this.radarBlip);
 
     }
 
     parseSetupInput() {
 
+        // @ts-ignore
         this.creatureCount = parseInt(readline());
         for (let i = 0; i < this.creatureCount; i++) {
+            // @ts-ignore
             var inputs: string[] = readline().split(' ');
             const creatureId: number = parseInt(inputs[0]);
             const color: number = parseInt(inputs[1]);
@@ -56,25 +65,36 @@ export class Game {
         }
     }
     parseGameState() {
+        // @ts-ignore
         this.score = parseInt(readline());
+        // @ts-ignore
         this.foeScore = parseInt(readline());
+        // @ts-ignore
         this.myScanCount = parseInt(readline());
         this.creatureScannedIds = []
         for (let i = 0; i < this.myScanCount; i++) {
+            // @ts-ignore
             const creatureId: number = parseInt(readline());
             this.creatureScannedIds.push(creatureId);
         }
+        // @ts-ignore
         this.foeScanCount = parseInt(readline());
         this.foeScannedIds = [];
         for (let i = 0; i < this.foeScanCount; i++) {
+            // @ts-ignore
             const creatureId: number = parseInt(readline());
             this.foeScannedIds.push(creatureId);
         }
+
+        // @ts-ignore
         this.myDroneCount = parseInt(readline());
         this.updateDroneState()
+
+        // @ts-ignore
         this.foeDroneCount = parseInt(readline());
         this.foeDrone = [];
         for (let i = 0; i < this.foeDroneCount; i++) {
+            // @ts-ignore
             var inputs: string[] = readline().split(' ');
             const droneId: number = parseInt(inputs[0]);
             const droneX: number = parseInt(inputs[1]);
@@ -92,15 +112,20 @@ export class Game {
             )
             this.foeDrone.push(drone);
         }
+        // @ts-ignore
         this.droneScanCount = parseInt(readline());
         this.droneScan = [];
         for (let i = 0; i < this.droneScanCount; i++) {
+            // @ts-ignore
             var inputs: string[] = readline().split(' ');
             const droneId: number = parseInt(inputs[0]);
             const creatureId: number = parseInt(inputs[1]);
+            this.myDrones.get(droneId)?.creaturesScanned.push(creatureId);
         }
+        // @ts-ignore
         const visibleCreatureCount: number = parseInt(readline());
         for (let i = 0; i < visibleCreatureCount; i++) {
+            // @ts-ignore
             var inputs: string[] = readline().split(' ');
             const creatureId: number = parseInt(inputs[0]);
             const creatureX: number = parseInt(inputs[1]);
@@ -122,30 +147,42 @@ export class Game {
                 console.error("No creature found...")
             }
         }
+        // Build list of creatures not scanned
+        // this.buildListOfCreaturesToHunt()
+        
+        // @ts-ignore
         this.radarBlipCount = parseInt(readline());
         this.radarBlip.clear();
         for (let i = 0; i < this.radarBlipCount; i++) {
+            // @ts-ignore
             var inputs: string[] = readline().split(' ');
             const droneId: number = parseInt(inputs[0]);
             const creatureId: number = parseInt(inputs[1]);
             const radar: string = inputs[2];
+            let blip = {
+                creatureId,
+                direction: radar
+            }
+            this.radarBlip.set(creatureId, blip)
+            this.myDrones.get(droneId)?.radar.push(blip)
         }
     }
 
     update() {
-        for (let i = 0; i < game.myDroneCount; i++) {
-            this.myDrone.get(i)!.update(this);
-        }
+        this.myDrones.forEach( drone => {
+            drone.update(this);
+        })
     }
-    printAction(i: number) {
-        if(i<this.myDroneCount) {
-            console.log(this.myDrone.get(i)!.nextAction); 
-        }        // MOVE <x> <y> <light (1|0)> | WAIT <light (1|0)>
+    printAction() {
+        this.myDrones.forEach( drone => {
+            console.log(drone.nextAction);
+        })
     }
 
     updateDroneState() {
         // Update drones positions
         for (let i = 0; i < this.myDroneCount; i++) {
+            // @ts-ignore
             var inputs: string[] = readline().split(' ');
             const droneId: number = parseInt(inputs[0]);
             const droneX: number = parseInt(inputs[1]);
@@ -161,16 +198,18 @@ export class Game {
                 battery,
                 emergency
             )
-            if( !this.myDrone.has(droneId) ) {
-                this.myDrone.set(droneId, newDrone);
+            if( !this.myDrones.has(droneId) ) {
+                this.myDrones.set(droneId, newDrone);
             } else {
-                let drone = this.myDrone.get(droneId)!;
+                let drone = this.myDrones.get(droneId)!;
                 drone.position = {
                     x: droneX,
                     y: droneY
                 };
                 drone.emergency = emergency;
                 drone.battery = battery;
+                drone.creaturesScanned = [];
+                drone.radar = [];
             }
         }
     }

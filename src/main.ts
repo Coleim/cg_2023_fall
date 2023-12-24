@@ -8,10 +8,8 @@ while (true) {
 
     game.parseGameState();
     game.printGameState();
-    game.update(); 
-    for (let i = 0; i < game.myDroneCount; i++) {
-        game.printAction(i);
-    }
+    game.update();
+    game.printAction();
 }
 
 
