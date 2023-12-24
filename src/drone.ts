@@ -17,6 +17,7 @@ enum DroneState {
     SEARCH
 }
 
+
 export class Drone {
     speed: number = 600;
     droneId: number;
@@ -25,16 +26,11 @@ export class Drone {
     battery: number;
     creaturesScanned: number[] = [];
     radar: RadarBlip[] = [];
-    creaturesToHunt: Map<number, Creature> = new Map();
     message: string;
 
     nextAction: string = "";
     nextLight: boolean = false;
-    moveDirection = Direction.DOWN;
-
-
     destination: Point | undefined;
-
     state: DroneState = DroneState.SEARCH;
 
     game: Game;
@@ -48,23 +44,24 @@ export class Drone {
 
     update(game: Game) {
         this.game = game;
-        this.buildListOfCreaturesToHunt();
         this.message = "";
         
         // MOVE <x> <y> <light (1|0)>
         // WAIT <light (1|0)>
 
-        
-        console.error(`[ ${this.droneId} ] >>>> BEFORE UPDATE`)
-        console.error(`[ ${this.droneId} ] >>>> >>>> DEST: ${this.destination}`)
-        console.error(`[ ${this.droneId} ] >>>> >>>> STATE: ${this.state}`)
+        console.error(">>>>>>>>>>>> [", this.droneId , "] >>>>>>>>> ")
+        console.error("[", this.droneId , "] >>>> BEFORE UPDATE ", this.destination)
+        console.error("[", this.droneId , "] >>>> >>>> DEST ", this.destination)
+        console.error("[", this.droneId , "] >>>> >>>> STATE ", this.state)
 
         if(this.destination && this.destination.x === this.position.x && this.destination.y === this.position.y) {
             this.destination = undefined;
         }
 
         this.state = DroneState.SEARCH;
-        if(this.creaturesToHunt.size > 0) {
+        
+        // console.error("[", this.droneId , "] >>>> >>>> CREATURE TO HUNT: ", this.game.creaturesToHunt)
+        if(this.game.creaturesToHunt.size > 0) {
             this.state = DroneState.HUNT;
             this.destination = undefined;
         }
@@ -76,10 +73,7 @@ export class Drone {
         if(!this.destination ) {
             switch(this.state) {
                 case DroneState.SAVE: {
-                    this.destination = {
-                        x: this.position.x,
-                        y: game.surface
-                    }
+                    this.destination = new Point(this.position.x, game.surface)
                 }
                 break;
                 case DroneState.SEARCH: {
@@ -87,12 +81,9 @@ export class Drone {
                 }
                 break;
                 case DroneState.HUNT: {
-                    let closestCreature = this.findClosestCreature(this.creaturesToHunt);
+                    let closestCreature = this.findClosestCreature(this.game.creaturesToHunt);
                     if(closestCreature) {
-                        this.destination = {
-                            x: closestCreature.creatureX!,
-                            y: closestCreature.creatureY!
-                        }
+                        this.destination = new Point(closestCreature.creatureX!, closestCreature.creatureY!);
                     }
                 }
                 break;
@@ -101,6 +92,13 @@ export class Drone {
     
         // Compute Path (avoid monsters etc...)
         let nextPosition = this.destination;
+
+        // console.error("[", this.droneId , "] >>>> MONSTER TO AVOID ? ", this.game.monstersToAvoid)
+        // console.error("[", this.droneId , "] >>>> MONSTER TO AVOID SIZE ? ", this.game.monstersToAvoid.size)
+        if(this.game.monstersToAvoid.size !== 0) {
+            let nextPosAlt = this.getNextPointToDestinationAvoidingCreatures(this.game.monstersToAvoid)
+            console.error("[", this.droneId , "] >>>> ALTERNATE POSITION ", nextPosAlt)
+        }
 
         
         switch(this.state) {
@@ -118,9 +116,9 @@ export class Drone {
 
         this.nextLight = !this.nextLight;
 
-        console.error(`[ ${this.droneId} ] >>>> AFTER UPDATE`)
-        console.error(`[ ${this.droneId} ] >>>> >>>> DEST: ${this.destination}`)
-        console.error(`[ ${this.droneId} ] >>>> >>>> STATE: ${this.state}`)
+        console.error("[", this.droneId , "] >>>> AFTER UPDATE ", this.destination)
+        console.error("[", this.droneId , "] >>>> >>>> DEST ", this.destination)
+        console.error("[", this.droneId , "] >>>> >>>> STATE ", this.state)
     }
 
 
@@ -128,13 +126,10 @@ export class Drone {
 
     searchCreatures(): Point {
         let nextPosition: Point = this.position;
-        if(this.creaturesToHunt.size > 0) {
-            let closestCreature = this.findClosestCreature(this.creaturesToHunt);
+        if(this.game.creaturesToHunt.size > 0) {
+            let closestCreature = this.findClosestCreature(this.game.creaturesToHunt);
             if(closestCreature) {
-                nextPosition = {
-                    x: closestCreature.creatureX!,
-                    y: closestCreature.creatureY!
-                }
+                nextPosition = new Point(closestCreature.creatureX!, closestCreature.creatureY!);
             }
             this.state = DroneState.HUNT;
         } else {
@@ -145,10 +140,7 @@ export class Drone {
                 );
                 nextPosition = this.computeNextPosition(this.position, mostFrequentDirection);
             } else {
-                this.destination = {
-                    x: this.position.x,
-                    y: game.surface
-                }
+                this.destination = new Point(this.position.x, this.game.surface);
                 this.state = DroneState.SAVE;
             }
         }
@@ -187,14 +179,20 @@ export class Drone {
             let allCreaturesScanned = this.game.creatureScannedIds;
             allCreaturesScanned.push(...this.creaturesScanned);
             if( !allCreaturesScanned.includes(blip.creatureId) ) {
-                const { direction } = blip;
-                if (directionCount[direction]) {
-                directionCount[direction]++;
+                if(this.game.monsters.has(blip.creatureId)) {
+                    // Build monster density ? Or not needed ?
+                    console.error("[", this.droneId , "] >>>> >>>> IGNORE THIS ONE : ", blip)
                 } else {
-                directionCount[direction] = 1;
+                    const { direction } = blip;
+                    if (directionCount[direction]) {
+                        directionCount[direction]++;
+                    } else {
+                        directionCount[direction] = 1;
+                    }
                 }
             }
         })
+        console.error("[", this.droneId , "] >>>> >>>> DIRECTION COUNT : ", directionCount)
         return directionCount;
     }
     findClosestCreature(creatures: Map<number, Creature>): Creature | null {
@@ -214,17 +212,84 @@ export class Drone {
         return closestCreature;
     }
 
+
+    getNextPointToDestinationAvoidingCreatures(monsters: Map<number, Creature>): Point {
+        const distanceToDestination = Math.sqrt(
+            Math.pow(this.destination!.x - this.position.x, 2) +
+            Math.pow(this.destination!.y - this.position.y, 2)
+        );
+
+        const directionVector = {
+            x: (this.destination!.x - this.position.x) / distanceToDestination,
+            y: (this.destination!.y - this.position.y) / distanceToDestination
+        };
+
+        let closestApproachDistance = Infinity;
+
+        monsters.forEach((creature) => {
+            if(creature.creatureX) {
+                const relativeX = creature.creatureX! - this.position.x;
+                const relativeY = creature.creatureY! - this.position.y;
+                const distanceToCreature = Math.sqrt(relativeX * relativeX + relativeY * relativeY);
     
-    buildListOfCreaturesToHunt() {
-        this.creaturesToHunt.clear();
-        let allCreaturesScanned = this.game.creatureScannedIds;
-        allCreaturesScanned.push(...this.creaturesScanned)
-        this.game.creatures.forEach( c => {
-            if(c.creatureX && !allCreaturesScanned.includes(c.creatureId)) {
-                this.creaturesToHunt.set(c.creatureId, c);
+                const monsterSpeed = 540; // Speed of monster per turn
+                const monsterCylinderRadius = monsterSpeed * this.speed; // Cylinder radius based on monster's speed
+    
+                const distanceToCylinder = distanceToCreature - monsterCylinderRadius;
+    
+                if (distanceToCylinder < 0) {
+                    // Drone is within the cylinder, adjust direction away from the cylinder
+                    const awayFromCylinderX = this.position.x - creature.creatureX!;
+                    const awayFromCylinderY = this.position.y - creature.creatureY!;
+    
+                    const distanceFromCylinder = Math.sqrt(
+                        awayFromCylinderX * awayFromCylinderX + awayFromCylinderY * awayFromCylinderY
+                    );
+    
+                    directionVector.x += awayFromCylinderX / distanceFromCylinder;
+                    directionVector.y += awayFromCylinderY / distanceFromCylinder;
+                } else {
+                    // Calculate the closest distance the monster will approach to the drone
+                    const timeToClosestApproach = distanceToCylinder / (monsterSpeed + this.speed);
+    
+                    // Find the closest approach distance among all monsters
+                    closestApproachDistance = Math.min(closestApproachDistance, timeToClosestApproach);
+    
+                    if (timeToClosestApproach < distanceToDestination / this.speed) {
+                        // If the closest approach happens before reaching the destination,
+                        // adjust the direction away from the monster's future position
+                        const futureMonsterX = creature.creatureX! + creature.creatureVx! * timeToClosestApproach;
+                        const futureMonsterY = creature.creatureY! + creature.creatureVy! * timeToClosestApproach;
+    
+                        const awayFromMonsterX = this.position.x - futureMonsterX;
+                        const awayFromMonsterY = this.position.y - futureMonsterY;
+    
+                        const distanceFromMonster = Math.sqrt(
+                            awayFromMonsterX * awayFromMonsterX + awayFromMonsterY * awayFromMonsterY
+                        );
+    
+                        directionVector.x += awayFromMonsterX / distanceFromMonster;
+                        directionVector.y += awayFromMonsterY / distanceFromMonster;
+                    }
+                }
             }
-        })
+        });
+
+        // Normalize direction vector
+        const directionMagnitude = Math.sqrt(directionVector.x * directionVector.x + directionVector.y * directionVector.y);
+        directionVector.x /= directionMagnitude;
+        directionVector.y /= directionMagnitude;
+
+        const nextPoint: Point = {
+            x: this.position.x + directionVector.x * this.speed * closestApproachDistance,
+            y: this.position.y + directionVector.y * this.speed * closestApproachDistance
+        };
+
+        return nextPoint;
     }
+
+    
+
 
 
 }
