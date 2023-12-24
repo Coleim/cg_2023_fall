@@ -1,5 +1,6 @@
 import { Creature } from "./creatures";
 import { Drone } from "./drone";
+import { Point } from "./point";
 import { RadarBlip } from "./radarblip";
 
 
@@ -9,6 +10,10 @@ export class Game {
 
     creatureCount: number;
     creatures: Map<number, Creature> = new Map();
+    monsters: Map<number, Creature> = new Map();
+    creaturesToHunt: Map<number, Creature> = new Map();
+    monstersToAvoid: Map<number, Creature> = new Map();
+        
     score: number;
     foeScore: number;
     myScanCount: number;
@@ -24,12 +29,13 @@ export class Game {
     radarBlipCount: number;
     radarBlip: Map<number, RadarBlip> = new Map();
 
+
     printGameState() {
         // console.error("My Drones:", this.myDrones);
 
         // console.error("Creature Count:", this.creatureCount);
         // console.error("Creatures:", this.creatures);
-        // console.error("Creatures To HUNT:", this.creaturesToHunt);
+        // console.error(">>> MONSTERS:", this.monsters);
         // console.error("My Drones:", this.myDrones);
         // console.error("Score:", this.score);
         // console.error("Foe Score:", this.foeScore);
@@ -61,7 +67,11 @@ export class Game {
             let creature: Creature = {
                 creatureId, color, type 
             }
-            this.creatures.set(creatureId,creature);
+            if(type === -1) {
+                this.monsters.set(creatureId,creature);
+            } else {
+                this.creatures.set(creatureId,creature);
+            }
         }
     }
     parseGameState() {
@@ -103,10 +113,7 @@ export class Game {
             const battery: number = parseInt(inputs[4]);
             let drone = new Drone(
                 droneId,
-                {
-                    x: droneX,
-                    y: droneY
-                },
+                new Point(droneX, droneY),
                 battery,
                 emergency
             )
@@ -143,12 +150,25 @@ export class Game {
                 }
                 this.creatures.set(creatureId, creature);
             } else {
-                // No creature found ????
-                console.error("No creature found...")
+                // It's a monster !
+                if(this.monsters.has(creatureId)) {
+                    let monster = this.monsters.get(creatureId);
+                    monster = {
+                        ...monster!,
+                        creatureX,
+                        creatureY,
+                        creatureVx,
+                        creatureVy
+                    }
+                    this.monsters.set(creatureId, monster);
+                } else {
+                    console.error(" !!!!!!!!!!!!!!!!!!!!!!!!!!!!! No creature found... !!!!!!!!!!!!!!!!!!!!!!!! ")
+                }
             }
         }
         // Build list of creatures not scanned
-        // this.buildListOfCreaturesToHunt()
+        this.buildListOfCreaturesToHunt()
+        this.buildListOfMonstersToAvoid()
         
         // @ts-ignore
         this.radarBlipCount = parseInt(readline());
@@ -191,10 +211,7 @@ export class Game {
             const battery: number = parseInt(inputs[4]);
             let newDrone: Drone = new Drone(
                 droneId,
-                {
-                    x: droneX,
-                    y: droneY
-                },
+                new Point(droneX, droneY),
                 battery,
                 emergency
             )
@@ -202,16 +219,37 @@ export class Game {
                 this.myDrones.set(droneId, newDrone);
             } else {
                 let drone = this.myDrones.get(droneId)!;
-                drone.position = {
-                    x: droneX,
-                    y: droneY
-                };
+                drone.position = new Point(droneX, droneY);
                 drone.emergency = emergency;
                 drone.battery = battery;
                 drone.creaturesScanned = [];
                 drone.radar = [];
             }
         }
+    }
+
+
+    buildListOfCreaturesToHunt() {
+        this.creaturesToHunt.clear();
+        let allCreaturesScanned = this.creatureScannedIds;
+        this.myDrones.forEach( drone => {
+            allCreaturesScanned.push(...drone.creaturesScanned);
+        })
+        this.creatures.forEach( c => {
+            if(c.creatureX && !allCreaturesScanned.includes(c.creatureId)) {
+                this.creaturesToHunt.set(c.creatureId, c);
+            }
+        })
+    }
+
+    buildListOfMonstersToAvoid() {
+        this.monstersToAvoid.clear();
+        this.monsters.forEach( c => {
+            if(c.creatureX) {
+                this.monstersToAvoid.set(c.creatureId, c);
+            }
+        })
+
     }
 
     
